@@ -1,6 +1,6 @@
 import os
 import time
-import pandas as pd # <--- Importiamo Pandas per la magia dell'esportazione Excel
+import pandas as pd
 from sklearn.svm import SVC
 from sklearn.metrics import f1_score
 from sklearn.model_selection import ParameterGrid
@@ -109,27 +109,40 @@ def addestramento(nome_encoding, set_preparato, numero_features, modulo_encoding
     # Salviamo direttamente in un file .xlsx, con le colonne belle larghe per leggere il testo, ed evidenziando la riga del modello vincente.
 
     # ------------
+
     df = pd.DataFrame(storico_risultati_addestramento)
+
     df["iperparametri_quantistici"] = df["iperparametri_quantistici"].astype(str)
     df["iperparametri_classici"] = df["iperparametri_classici"].astype(str)
+
     nome_file_excel = os.path.join(nome_cartella, "storico_risultati.xlsx")
+
     with pd.ExcelWriter(nome_file_excel, engine='openpyxl') as writer:
+
         df.to_excel(writer, index=False, sheet_name='Risultati')
         foglio = writer.sheets['Risultati']
+
         from openpyxl.utils import get_column_letter 
-        from openpyxl.styles import PatternFill # <--- Nuova importazione per i colori
+        from openpyxl.styles import PatternFill
+
         for indice_colonna, nome_colonna in enumerate(df.columns):
+
             lunghezza_massima = max(
                 df[nome_colonna].astype(str).map(len).max(),
                 len(nome_colonna)
             ) + 2
+
             lettera_colonna = get_column_letter(indice_colonna + 1)
             foglio.column_dimensions[lettera_colonna].width = lunghezza_massima
+
         indice_migliore = df["F1_score_macro(%)"].idxmax()
         riga_excel = indice_migliore + 2 # +1 per l'intestazione, +1 perché Excel conta partendo da 1
         riempimento_giallo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
         for col in range(1, len(df.columns) + 1):
+
             foglio.cell(row=riga_excel, column=col).fill = riempimento_giallo
+
     # ------------
         
     return miglior_set_adattato, migliori_matrici_gram, miglior_modello, storico_risultati_addestramento

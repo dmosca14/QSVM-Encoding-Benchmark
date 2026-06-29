@@ -5,12 +5,7 @@ def importa_dataset(dataset_scelto, numero_campioni, frazione_dati_per_train, fr
 
     # IMPORTAZIONE DEI DATI.
 
-    # "np.asarray" permette di ricevere in ingresso anche un tipo di dataset "fetch", cioè un foglio tipo Excel, anziché un "load", cioè un array puro. 
-    # "np.asarray" converte poi il dataset in un array. Per fare questo, bisogna anche aggiungere a y_grezzo "astype(int)", per evitare che gli
-    # attributi siano stringhe testuali e non 0 ed 1, come vogliamo che siano.
-
-    X_grezzo = np.asarray(dataset_scelto.data)
-    y_grezzo = np.asarray(dataset_scelto.target).astype(int) 
+    X_grezzo, y_grezzo = dataset_scelto
     
     numero_campioni_totale = X_grezzo.shape[0] # Numero di righe del dataset, quindi numero di campioni del dataset.
 

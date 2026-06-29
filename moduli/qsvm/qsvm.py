@@ -8,7 +8,7 @@ def costruisci_qsvm(set_preparato, numero_features, modulo_encoding, iperparamet
     # CREAZIONE DELLA CARTELLA RELATIVA ALLA RUN ATTUALE.
 
     nome_encoding = getattr(modulo_encoding, "nome_encoding")
-    nome_pulito_encoding = nome_encoding.replace(" ", "_").lower() # Serve per trasformare "Basis Encoding" in "basis_encoding".
+    nome_pulito_encoding = nome_encoding.replace(" ", "_").lower() # Serve per trasformare, ad esempio, "Basis Encoding" in "basis_encoding".
    
     # Estraiamo l'orario dal nome della cartella della run attuale.
 

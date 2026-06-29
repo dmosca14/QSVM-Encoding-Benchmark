@@ -21,6 +21,8 @@ def test_e_visualizzazione(nome_encoding, set_adattato, matrici_gram, modello, n
 
     # Da qui in poi, essendo una parte puramente fatta di grafici, il codice è stato fatto interamente da Gemini.
 
+    # ------------
+
     tabella = []
     for chiave, valori in report_dict.items():
         if chiave in ["accuracy", "macro avg", "weighted avg"]: 
@@ -68,5 +70,7 @@ def test_e_visualizzazione(nome_encoding, set_adattato, matrici_gram, modello, n
     percorso_grafico = os.path.join(nome_cartella, "grafici_modello_ottimo.svg")
     plt.savefig(percorso_grafico, dpi=300)
     plt.show()
+
+    # ------------
 
     return tabella_formattata
