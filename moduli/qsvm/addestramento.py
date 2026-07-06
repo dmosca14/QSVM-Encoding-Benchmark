@@ -123,14 +123,19 @@ def addestramento(nome_encoding, train_set_raw, test_set_raw, numero_features, m
             
     print(f"F1-Score (Macro) del miglior modello in {numero_fold_effettivo}-fold CV: {miglior_score * 100:.2f}% (± {miglior_std_score * 100:.2f}%)\n")
 
-    # Salvataggio dei file con i risultati di ogni combinazione di iperparametri (file .xlsx).
-    
+    # SALVATAGGIO DEL FILE CON I RISULTATI DI OGNI COMBINAZIONE DI IPERPARAMETRI (codice nelle righe fatto interamente da Gemini).
+
     df = pd.DataFrame(storico_risultati_addestramento)
 
     df["iperparametri_quantistici"] = df["iperparametri_quantistici"].astype(str)
     df["iperparametri_classici"] = df["iperparametri_classici"].astype(str)
 
     nome_file_excel = os.path.join(nome_cartella, "storico_risultati_"+nome_dataset+".xlsx")
+
+    # se il file esiste già (es. run precedente o chiamata multipla), accodiamo invece di sovrascrivere
+    if os.path.exists(nome_file_excel):
+        df_precedente = pd.read_excel(nome_file_excel)
+        df = pd.concat([df_precedente, df], ignore_index=True)
 
     with pd.ExcelWriter(nome_file_excel, engine='openpyxl') as writer:
 
@@ -151,11 +156,11 @@ def addestramento(nome_encoding, train_set_raw, test_set_raw, numero_features, m
             foglio.column_dimensions[lettera_colonna].width = lunghezza_massima
 
         indice_migliore = df["F1_score_macro(%)"].idxmax()
-        riga_excel = indice_migliore + 2 # +1 per l'intestazione, +1 perché Excel conta partendo da 1
+        riga_excel = indice_migliore + 2
         riempimento_giallo = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
 
         for col in range(1, len(df.columns) + 1):
-
             foglio.cell(row=riga_excel, column=col).fill = riempimento_giallo
 
-    return miglior_set_adattato, migliori_matrici_gram, miglior_modello, storico_risultati_addestramento
+    return (miglior_set_adattato, migliori_matrici_gram, miglior_modello,
+            storico_risultati_addestramento, migliori_iperparametri_quantistici, migliori_iperparametri_classici)
