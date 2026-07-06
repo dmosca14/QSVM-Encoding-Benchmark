@@ -4,6 +4,7 @@ from pathlib import Path
 import itertools
 import pandas as pd
 import numpy as np
+import time
 os.environ["OMP_NUM_THREADS"] = "4"
 
 qml_code_dir = Path.cwd().parent
@@ -20,7 +21,7 @@ from moduli.qsvm.configurazione_cartella_run import cartella_run_attuale
 from moduli.kernel import kernel_amplitude, kernel_angle, kernel_basis, kernel_IQP, kernel_rbf, kernel_projected
 from moduli.metriche import kernel_target_alignment, coefficiente_geometrico
 
-# Configurazione generale.
+# Configurazione generale
 
 numero_campioni = 200
 numero_features = 4
@@ -29,7 +30,6 @@ frazione_dati_per_train = 0.80
 frazione_dati_per_test = 0.20
 griglia_C = [1.0, 10.0, 100.0, 1000.0]
 
-# Generazione e caricamento dei dataset.
 
 def genera_dataset_ad_hoc(n_samples=200):
     np.random.seed(42)
@@ -44,6 +44,7 @@ def genera_dataset_xor_alta_dim(n_samples=200, n_features=numero_features, rando
     y = (np.prod(segni, axis=1) > 0).astype(int)
     return X, y
 
+
 dati_breast_cancer = load_breast_cancer()
 def sottocampiona_breast_cancer(n_samples=numero_campioni, random_state=1):
     X, y = dati_breast_cancer.data, dati_breast_cancer.target
@@ -51,6 +52,7 @@ def sottocampiona_breast_cancer(n_samples=numero_campioni, random_state=1):
         X, y, train_size=n_samples, stratify=y, random_state=random_state
     )
     return X_sub, y_sub
+
 
 datasets = {
     "Linear": make_classification(n_samples=numero_campioni, n_features=numero_features, n_redundant=0, n_informative=2, random_state=1, n_clusters_per_class=1),
@@ -61,7 +63,6 @@ datasets = {
     "Breast_Cancer": sottocampiona_breast_cancer(n_samples=numero_campioni)
 }
 
-# Configurazione degli encoding.
 
 def costruisci_configurazioni_encoding(pattern_catena, pattern_tutti):
     return [
@@ -72,70 +73,61 @@ def costruisci_configurazioni_encoding(pattern_catena, pattern_tutti):
         {"nome": "Projected", "modulo": kernel_projected, "ip_quantistici": {"gamma": [0.1, 1.0, 5.0], "numero_layer": [1, 2]}}
     ]
 
+
 risultati_globali = []
 
-# Loop di esecuzione.
+# Loop di esecuzione
 
 for nome_ds, data in datasets.items():
     print(f"\n--- Elaborazione: {nome_ds} ---")
 
-    # Estrazione del test set.
-
+    # Estrazione dataset
+    
     train_set_raw, test_set_raw = preprocessa_dataset(data, frazione_dati_per_train)
     y_train, y_test = train_set_raw[1], test_set_raw[1]
 
-    # PCA eseguita esplicitamente qui SOLO per il calcolo della versione classica (su quelle quantistiche facciamo CV).
-
+    # Standardizzazione e PCA per RBF 
+    
     train_set_pca, test_set_pca, num_features = prepara_dataset(train_set_raw, test_set_raw, numero_features)
 
-    # Pattern IQP ricalcolato sempre, in base al num_features reale del dataset specifico.
-
+    # Pattern per IQP
+    
     pattern_catena = [[i, i + 1] for i in range(num_features - 1)]
     pattern_tutti = [list(coppia) for coppia in itertools.combinations(range(num_features), 2)]
     configurazioni_encoding = costruisci_configurazioni_encoding(pattern_catena, pattern_tutti)
 
-    # Versione classica con RBF.
-
+    # Kernel RBF 
+    
     _, matrici_gram_rbf = kernel_rbf.kernel(train_set_pca, test_set_pca)
     K_classico_train = matrici_gram_rbf[0]
     kta_rbf = kernel_target_alignment(K_classico_train, y_train)
 
-    # Creazione della griglia di iperparametri quantistici. 
-
     for config in configurazioni_encoding:
+        # UNA SOLA chiamata per encoding: passiamo l'intera griglia di iperparametri
+        # quantistici, ed è addestramento() a fare la grid-search completa
+        # (quantistici x classici) e a scegliere/restituire solo il modello migliore.
+        modello, set_adattato, matrici_gram, storico, ip_q_migliori, ip_c_migliori = costruisci_qsvm(
+            train_set_raw, test_set_raw, num_features, config["modulo"],
+            config["ip_quantistici"], {"C": griglia_C}, nome_ds
+        )
 
-        ip_quant = config["ip_quantistici"]
-        combinazioni = [dict(zip(ip_quant.keys(), v)) for v in itertools.product(*ip_quant.values())] if ip_quant else [{}]
+        K_train_q, K_test_q = matrici_gram
 
-        for ip_q in combinazioni:
-            ip_q_griglia = {k: [v] for k, v in ip_q.items()}
-
-            # Allenamento sulla singola combinazione di iperparametri quantistici, e su tutti quelli classici.
-
-            modello, set_adattato, matrici_gram = costruisci_qsvm(
-                train_set_raw, test_set_raw, num_features, config["modulo"],
-                ip_q_griglia, {"C": griglia_C}, nome_ds
-            )
-
-            K_train_q, K_test_q = matrici_gram
-
-            # Risultati.
-
-            risultati_globali.append({
-                "Dataset": nome_ds,
-                "Encoding": config["nome"],
-                "Parametri Q": str(ip_q),
-                "C": modello.C,
-                "RBF KTA": f"{kta_rbf:.4f}",
-                "Quantum KTA": f"{kernel_target_alignment(K_train_q, y_train):.4f}",
-                "Coeff. Geom": f"{coefficiente_geometrico(K_classico_train, K_train_q):.4f}",
-                "Acc": f"{accuracy_score(y_test, modello.predict(K_test_q)):.4f}",
-                "F1": f"{f1_score(y_test, modello.predict(K_test_q), average='weighted'):.4f}"
-            })
+        risultati_globali.append({
+            "Dataset": nome_ds,
+            "Encoding": config["nome"],
+            "Parametri Q": str(ip_q_migliori),
+            "C": ip_c_migliori.get("C", modello.C),
+            "RBF KTA": f"{kta_rbf:.4f}",
+            "Quantum KTA": f"{kernel_target_alignment(K_train_q, y_train):.4f}",
+            "Coeff. Geom": f"{coefficiente_geometrico(K_classico_train, K_train_q):.4f}",
+            "Acc": f"{accuracy_score(y_test, modello.predict(K_test_q)):.4f}",
+            "F1": f"{f1_score(y_test, modello.predict(K_test_q), average='weighted'):.4f}"
+        })
 
     pd.DataFrame(risultati_globali).to_csv(os.path.join(cartella_run_attuale, "risultati_parziali.csv"), index=False)
 
-# Output.
+# Output
 
 df = pd.DataFrame(risultati_globali)
 print(df.to_string(index=False))
