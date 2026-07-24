@@ -1,15 +1,10 @@
-FROM python:3.12
-
-# Dipendenze di sistema per compilazione ed esecuzione
+FROM python:3.12-slim
 
 RUN apt-get update && apt-get install -y \
-    wget \
-    git \
     build-essential \
     libgomp1 \
+    git \
     && rm -rf /var/lib/apt/lists/*
-
-# Librerie Python per Quantum Machine Learning e Data Science
 
 RUN pip install --no-cache-dir \
     ipython \
@@ -30,8 +25,6 @@ RUN pip install --no-cache-dir \
     openpyxl \
     joblib
 
-# Variabili d'ambiente per il multithreading
-ENV OMP_NUM_THREADS=1
-ENV MKL_NUM_THREADS=1
-ENV OPENBLAS_NUM_THREADS=1
-ENV VECLIB_MAXIMUM_THREADS=1
+EXPOSE 8888
+WORKDIR /workspace
+CMD ["jupyter", "lab", "--ip=0.0.0.0", "--allow-root", "--no-browser"]
