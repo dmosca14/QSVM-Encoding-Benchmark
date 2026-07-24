@@ -1,5 +1,5 @@
 {
-    "name": "QSVM-Encoding-Benchmark-Container",
+    "name": "qsvm-encoding-benchmark_container",
     "build": {
         "dockerfile": "Dockerfile",
         "context": ".."
